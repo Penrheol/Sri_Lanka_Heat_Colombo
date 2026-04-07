@@ -1,1 +1,12 @@
 # Sri_Lanka_Heat_Colombo
+These files provide the following:
+
+Interactive HTML dashboard sri_lanka_heat_tool.html – open in any browser. No installation needed. Three tabs: Threshold Calculator: adjustable Bayesian loss parameters per sector (health, agriculture, labour), live probability sliders representing the ensemble forecast, and an optimal Watch/Alert/Warning decision that updates in real time along with the full loss matrix Advisory Generator: enter forecast Heat Index, Tmax, and RH; the tool outputs the warning level, impact statement, sector-specific action cards drawn from the Rogers (2026) prescriptive models, and a draft advisory text ready to copy or print Post-Event Review: a structured FORIN matrix (four EW4All pillars × four lenses) for recording what happened, plus impact tables, lessons fields, and a future climate filter — exportable as a plain-text summary
+
+Python tool heat_ews-srilanka.py for temperature indices. Implements the three probability models (climatological, calibrated, raw ensemble), Sri Lanka-specific Heat Index category boundaries, sector-tuned loss matrices for health/agriculture/labour/balanced, Brier score verification, and hit-rate statistics. Plug in real Anuradhapura observations to calibrate, and the tool tells you which thresholds to adopt.
+
+Word SOP template – Implements the three probability models (climatological, calibrated, raw ensemble), Sri Lanka-specific Heat Index category boundaries, sector-tuned loss matrices for health/agriculture/labour/balanced, Brier score verification, and hit-rate statistics. Plug in real Anuradhapura observations to calibrate, and the tool tells you which thresholds to adopt.
+
+heat_ews_demo.py – run from command line, saves 9 charts to demo_output folder. Examples of output are included in the files. Write anuadhapura_data_template.csv for DOM to fill in real observations There are three command line models: built in sythetic; full year with MAr-May peak; real DOM observations
+
+heat_ews_demo.ipynb – 10 section step-by-step notebook with narrative text and inline plots, structured as a teaching document for DoM staff or a workshop walkthrough. The key cells are interactive — Section 8 lets you change the FORECAST probability vector and immediately see which warning the system would issue and what every sector should do. Section 9 shows the threshold decision boundary map, which updates automatically when real data is plugged in.
