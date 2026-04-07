@@ -1,0 +1,22 @@
+date,heat_index,forecast_p1,forecast_p2,forecast_p3,forecast_p4
+2026-03-01,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-02,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-03,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-04,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-05,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-06,,,,,    # example row — fill in observed HI and forecast probs
+2026-03-07,,,,,    # example row — fill in observed HI and forecast probs
+
+# COLUMN DESCRIPTIONS:
+# date         : ISO format YYYY-MM-DD (required)
+# heat_index   : observed Heat Index in Celsius (required)
+#                  Normal <39  |  Caution 39-45  |  Extreme 46-51  |  Danger >=52
+# forecast_p1  : forecast probability of Cat 1 (Normal)  — optional
+# forecast_p2  : forecast probability of Cat 2 (Caution) — optional
+# forecast_p3  : forecast probability of Cat 3 (Extreme) — optional
+# forecast_p4  : forecast probability of Cat 4 (Danger)  — optional
+#   If omitted, a synthetic moderate-skill ensemble is assumed.
+#   Probabilities per row should sum to 1.0 (auto-normalised if not).
+
+# UTCI or Tmax users: convert to approximate Heat Index equivalents,
+# or adjust HI_THRESHOLDS in heat_ews_srilanka.py.
