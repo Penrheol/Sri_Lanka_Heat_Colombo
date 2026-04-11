@@ -8,9 +8,22 @@ Original framework: Economou T, Stephenson DB, Rougier JC, Neal RA,
 Mylne KR (2016) Proc. R. Soc. A 472: 20160295
 
 Sectors addressed (Rogers 2026 prescriptive models):
-  - Human Health (heat-health action plans, hospital surge)
-  - Agriculture (heat stress, irrigation, crop calendars)
-  - Outdoor Labour (WBGT / work-rest cycles)
+  - Human Health      (heat-health action plans, hospital surge)
+  - Outdoor Labour    (WBGT / work-rest cycles)
+  - Disaster Mgmt     (DMC multi-agency coordination)
+  - Tourism           (visitor safety, beach/event operations)
+  - Energy            (grid cooling-load, utility response)
+  - Agriculture       (heat stress, irrigation; excluded from Balanced)
+  - Education         (school closures; excluded from Balanced)
+
+Three-tier warning architecture:
+  Tier 1 — Hazard Warning    (General Forecaster; p*≈0.50)
+  Tier 2 — Impact Advisory   (Balanced Sectoral; fixed calibration from six heat-critical
+              sectors: Health, Labour, DM, Tourism, Energy; p*≈0.40)
+  Tier 3 — Decision Advisory (user-calibrated; defaults to Balanced)
+
+Agriculture excluded from Tier 2: seasonal/diffuse response; p*>1.0
+Education excluded from Tier 2:  high institutional adaptive capacity; p*≈0.97
 
 Usage (demo):
     python heat_ews_srilanka.py
@@ -149,7 +162,7 @@ class HeatData:
 
 # ─────────────────────────────────────────────────────────────
 # 3. LOSS FUNCTIONS  (Economou et al. Eq. 4.6–4.7)
-#    Adapted for three sector profiles
+#    Adapted for seven sector profiles (three-tier architecture)
 # ─────────────────────────────────────────────────────────────
 
 SECTOR_LOSS_PARAMS = {
@@ -157,10 +170,28 @@ SECTOR_LOSS_PARAMS = {
     # c  = max protection cost (mobilising early response)
     # l  = max potential damage if no action taken
     # Calibrated from Rogers (2026) sectoral value estimates
+
+    # ── Tier 1: General Forecaster baseline ──────────────────────────────
+    "gf":        (25,  100, 1.74, 0.60, 0.32),   # Economou et al. baseline; p*≈0.50
+
+    # ── Tier 2: Impact Advisory — fixed calibration ──────────────────────
+    # Mean of Health, Labour, DM, Garment, Tourism, Energy parameters → p*≈0.37
+    # More precautionary than GF; captures multi-sector vulnerability.
+    # Agriculture excluded: seasonal/diffuse response; p*>1.0 (never warn)
+    # Education excluded:   high institutional adaptive capacity; p*≈0.97
+    "balanced":  (20,  105, 1.50, 0.75, 0.32),   # recalibrated incl. Garment; p*≈0.37
+
+    # ── Tier 3: Decision Advisory sector profiles ─────────────────────────
     "health":    (20,  150, 1.40, 0.80, 0.32),   # high damage asymmetry; lives at stake
-    "agri":      (30,   90, 1.90, 0.50, 0.32),   # high cost of mobilising irrigation/advisory
     "labour":    (22,  120, 1.60, 0.70, 0.32),   # WBGT-based work-rest cycles
-    "balanced":  (25,  100, 1.74, 0.60, 0.32),   # Economou et al. baseline
+    "dm":        (18,  180, 1.30, 0.85, 0.32),   # DMC coordination; highest loss severity
+    "garment":   (21,  105, 1.55, 0.72, 0.32),   # EPZ factory floor; piece-rate; BOI/JATFZA
+    "tourism":   (24,  110, 1.65, 0.68, 0.32),   # visitor safety; reputational costs
+    "energy":    (27,  115, 1.75, 0.60, 0.32),   # grid cooling-load; infrastructure risk
+
+    # ── Excluded from Balanced calibration ───────────────────────────────
+    "agri":      (30,   90, 1.90, 0.50, 0.32),   # high cost/low benefit ratio; p*>1.0
+    "education": (25,   80, 1.70, 0.55, 0.32),   # institutional capacity; p*≈0.97
 }
 
 
@@ -313,7 +344,10 @@ class HeatWarningSystem:
     Parameters
     ----------
     sector : str
-        One of 'health', 'agri', 'labour', 'balanced'.
+        One of 'health', 'labour', 'dm', 'tourism', 'energy',
+        'agri', 'education', 'balanced', or 'gf'.
+        'balanced' uses the fixed Tier 2 calibration (p*≈0.40);
+        'gf' uses the Tier 1 General Forecaster baseline (p*≈0.50).
     model_type : str
         'calibrated' (recommended), 'ensemble', or 'climatological'.
     """
@@ -404,56 +438,100 @@ class HeatWarningSystem:
 # ─────────────────────────────────────────────────────────────
 
 SECTOR_ACTIONS = {
-    1: {  # Green
+    1: {  # Green — No Warning
         'Health':    ['Routine surveillance. Ensure ORS stocks at district facilities.'],
-        'Agri':      ['Normal field operations. Monitor soil moisture.'],
         'Labour':    ['Normal schedules. Reinforce hydration messaging.'],
+        'DM':        ['Routine monitoring. Heat desk on standby.'],
+        'Garment':   ['Normal EPZ factory floor operations.',
+                      'Ensure drinking water stations are functional on all factory floors.',
+                      'Confirm factory medical officer cover is in place.'],
+        'Tourism':   ['Normal visitor operations. Post sun-safety information at beaches and attractions.'],
+        'Energy':    ['Routine grid monitoring. Note seasonal cooling-load baseline.'],
+        'Agri':      ['Normal field operations. Monitor soil moisture.'],
         'Education': ['Normal activities. Ensure water access at schools.'],
-        'DMC':       ['Routine monitoring. Heat desk on standby.'],
     },
-    2: {  # Yellow — Watch
+    2: {  # Yellow — Heat Watch
         'Health':    ['Activate heat-health surveillance.', 'Pre-position ORS and electrolyte supplies.',
                       'Brief PHIs in at-risk divisions.', 'Alert elderly care facilities.'],
-        'Agri':      ['Advise fieldwork before 10:00 and after 16:00.',
-                      'Check irrigation systems.', 'Increase water for livestock.'],
         'Labour':    ['Issue workplace heat advisory.', '10-min rest break per hour outdoors.',
                       'Ensure shaded rest areas and water at worksites.'],
-        'Education': ['Limit outdoor sports to early morning.', 'Distribute hydration guidance.'],
-        'DMC':       ['Activate district heat response plan.', 'Test SMS alert system.',
+        'DM':        ['Activate district heat response plan.', 'Test SMS alert system.',
                       'Brief GN officers.'],
+        'Garment':   ['Issue heat advisory to all EPZ factory management.',
+                      'Increase ventilation and industrial fans on factory floors.',
+                      'Mandate 5-min cooling break per hour for piece-rate workers.',
+                      'Alert factory medical officers; confirm heat-illness response kit availability.',
+                      'Notify JATFZA and BOI heat watch contacts.'],
+        'Tourism':   ['Issue heat safety advisory to hotels and tour operators.',
+                      'Advise outdoor excursions before 10:00 or after 16:00.',
+                      'Increase drinking water availability at tourist sites.'],
+        'Energy':    ['Notify utility dispatch of elevated cooling-load risk.',
+                      'Pre-position maintenance crews for peak demand periods.',
+                      'Issue advisory to large consumers to defer non-essential loads.'],
+        'Agri':      ['Advise fieldwork before 10:00 and after 16:00.',
+                      'Check irrigation systems.', 'Increase water for livestock.'],
+        'Education': ['Limit outdoor sports to early morning.', 'Distribute hydration guidance.'],
     },
-    3: {  # Amber — Alert
+    3: {  # Amber — Heat Alert
         'Health':    ['Open emergency heat treatment pathways at Teaching Hospital.',
                       'Deploy mobile health teams to high-risk divisions.',
                       'Alert A&E departments for heat-stroke cases.',
                       'Broadcast public guidance (symptoms and first aid).'],
-        'Agri':      ['Suspend non-essential fieldwork 10:00–16:00.',
-                      'Issue crop stress advisory (paddy, vegetables).',
-                      'Activate emergency irrigation if drought co-occurs.'],
         'Labour':    ['Mandate rest-in-shade 11:00–15:00.',
                       'Provide 1 L water per worker per 2 hrs.',
                       'Report heat illness cases to MOH office.'],
-        'Education': ['Cancel afternoon outdoor activities.', 'Consider early school closure.',
-                      'Increase water rations: 500 ml/child/hr.'],
-        'DMC':       ['Convene inter-agency heat task force.',
+        'DM':        ['Convene inter-agency heat task force.',
                       'Activate EOC if >10 districts affected.',
                       'Coordinate media messaging (Sinhala, Tamil, English).'],
+        'Garment':   ['SUSPEND production 11:00–15:00 on all EPZ factory floors.',
+                      'Activate factory emergency cooling protocol.',
+                      'All factory medical officers to remain on-floor during heat hours.',
+                      'Issue welfare payments for suspended production periods.',
+                      'Report heat-illness cases to Department of Labour within 2 hours.',
+                      'BOI/JATFZA zone coordinators to conduct unannounced compliance checks.'],
+        'Tourism':   ['Issue formal public heat alert through tourism authority.',
+                      'Cancel or reschedule outdoor cultural/adventure activities.',
+                      'Coordinate with hotel associations to provide cooling centres.',
+                      'Alert port authority: restrict exposed embarkation areas.'],
+        'Energy':    ['Activate demand-response programme for industrial consumers.',
+                      'Place generation reserve on hot standby.',
+                      'Monitor transmission lines for thermal overload.',
+                      'Issue rolling load-management schedule if demand exceeds capacity.'],
+        'Agri':      ['Suspend non-essential fieldwork 10:00–16:00.',
+                      'Issue crop stress advisory (paddy, vegetables).',
+                      'Activate emergency irrigation if drought co-occurs.'],
+        'Education': ['Cancel afternoon outdoor activities.', 'Consider early school closure.',
+                      'Increase water rations: 500 ml/child/hr.'],
     },
-    4: {  # Red — Warning
+    4: {  # Red — Heat Warning
         'Health':    ['Declare public health emergency if fatalities confirmed.',
                       'Maximise ICU/A&E capacity at Teaching Hospitals.',
                       'Activate Ministry of Health Heat Emergency Protocol.'],
+        'Labour':    ['ALL outdoor work SUSPENDED (except essential services).',
+                      'Enforce emergency heat regulations via Labour Ministry.',
+                      'Provide emergency shelter for unhoused workers.'],
+        'DM':        ['Activate National Emergency Operations Centre.',
+                      'Brief Presidential Secretariat.',
+                      'Notify international partners (IFRC/WHO) if mass casualties.'],
+        'Garment':   ['ALL EPZ factory production SUSPENDED until heat level falls below AMBER.',
+                      'Emergency welfare protocol: all workers entitled to full-day pay.',
+                      'Factory managers to coordinate with BOI/JATFZA emergency transport for workers.',
+                      'All heat casualties to be reported to Ministry of Labour within 1 hour.',
+                      'BOI/JATFZA zone emergency coordinators to conduct mandatory welfare checks.',
+                      'Coordinate with Ministry of Labour and Factories Inspectorate.'],
+        'Tourism':   ['Close outdoor attractions and beaches to visitors.',
+                      'Coordinate emergency repatriation of affected tourists with airlines.',
+                      'Activate hotel-based cooling-centre network (mandatory participation).',
+                      'Notify Ministry of Tourism and foreign embassies.'],
+        'Energy':    ['Declare grid emergency; implement controlled load-shedding rota.',
+                      'Suspend discretionary industrial supply as per emergency protocol.',
+                      'Brief CEB/LECO management and Ministry of Power.',
+                      'Activate mutual-aid agreement with regional utilities if capacity critical.'],
         'Agri':      ['Suspend all outdoor fieldwork until further notice.',
                       'Emergency water trucking for livestock.',
                       'Activate crop insurance notifications.'],
-        'Labour':    ['ALL outdoor work SUSPENDED (except essential services).',
-                      'LECO: monitor grid for cooling-load surge.',
-                      'Enforce emergency heat regulations via Labour Ministry.'],
         'Education': ['Close schools in affected districts.',
                       'Arrange safe transport for boarding students.'],
-        'DMC':       ['Activate National Emergency Operations Centre.',
-                      'Brief Presidential Secretariat.',
-                      'Notify international partners (IFRC/WHO) if mass casualties.'],
     },
 }
 
@@ -539,29 +617,51 @@ def run_demo():
               f"FAR: {results['FAR']:.2f} | CSI: {results['CSI']:.2f}")
 
     # ── Sector-specific loss matrices ──────────────────────
-    print("\n── Loss Matrices by Sector ──")
-    for sector in ['health', 'agri', 'labour']:
+    print("\n── Loss Matrices by Sector (all Tier 3 sectors) ──")
+    for sector in ['health', 'labour', 'dm', 'tourism', 'energy', 'agri', 'education']:
         sys = HeatWarningSystem(sector=sector, model_type='calibrated')
         sys.fit(train_data)
         sys.print_loss_matrix()
 
-    # ── Single forecast example ────────────────────────────
-    print("\n── Single Forecast Decision ──")
+    # ── Three-tier decision comparison ─────────────────────
+    print("\n── Three-Tier Decision Comparison ──")
     print("  Forecast probabilities: [Cat1=10%, Cat2=30%, Cat3=40%, Cat4=20%]")
     forecast = [0.10, 0.30, 0.40, 0.20]
 
-    for sector in ['health', 'agri', 'labour', 'balanced']:
-        sys = HeatWarningSystem(sector=sector, model_type='calibrated')
-        sys.fit(train_data)
-        result = sys.issue_warning(forecast)
-        print(f"\n  Sector [{sector:10s}]: {result['warning_label']}")
-        print(f"    Min expected loss: {result['min_expected_loss']:.1f}")
+    # Tier 1: General Forecaster
+    sys_gf = HeatWarningSystem(sector='gf', model_type='calibrated')
+    sys_gf.fit(train_data)
+    r_gf = sys_gf.issue_warning(forecast)
+    print(f"\n  TIER 1 — General Forecaster:   {r_gf['warning_label']}")
+    print(f"    p*(GF) ≈ 0.50 | Min expected loss: {r_gf['min_expected_loss']:.1f}")
+
+    # Tier 2: Balanced Sectoral (fixed)
+    sys_bal = HeatWarningSystem(sector='balanced', model_type='calibrated')
+    sys_bal.fit(train_data)
+    r_bal = sys_bal.issue_warning(forecast)
+    print(f"\n  TIER 2 IMPACT ADVISORY:        {r_bal['warning_label']}")
+    print(f"    p*(Bal) ≈ 0.40 | Min expected loss: {r_bal['min_expected_loss']:.1f}")
+
+    # Tier 3: Individual sector profiles
+    print(f"\n  TIER 3 — Sector-specific decisions:")
+    tier3_sectors = [
+        ('health',    'Human Health'),
+        ('labour',    'Outdoor Labour'),
+        ('dm',        'Disaster Mgmt'),
+        ('tourism',   'Tourism'),
+        ('energy',    'Energy'),
+        ('agri',      'Agriculture  (excl. Balanced)'),
+        ('education', 'Education    (excl. Balanced)'),
+    ]
+    for skey, slabel in tier3_sectors:
+        sys_s = HeatWarningSystem(sector=skey, model_type='calibrated')
+        sys_s.fit(train_data)
+        r_s = sys_s.issue_warning(forecast)
+        print(f"    [{slabel:35s}]: {r_s['warning_label']}  "
+              f"(loss: {r_s['min_expected_loss']:.1f})")
 
     # ── Show actions for the balanced-sector warning ───────
-    sys = HeatWarningSystem(sector='balanced', model_type='calibrated')
-    sys.fit(train_data)
-    result = sys.issue_warning(forecast)
-    print_sector_actions(result['warning'])
+    print_sector_actions(r_bal['warning'])
 
     # ── Threshold display ──────────────────────────────────
     print("\n── Current Heat Index Thresholds (Colombo Pilot) ──")

@@ -45,7 +45,34 @@ COLORS = {
     4: ('#B71C1C', '#FFEBEE'),   # red
 }
 WARN_SHORT = {1: 'No Warning', 2: 'Watch', 3: 'Alert', 4: 'Warning'}
-SECTOR_COLORS = {'health': '#C62828', 'agri': '#2E7D32', 'labour': '#E65100', 'balanced': '#1565C0'}
+SECTOR_COLORS = {
+    'gf'       : '#455A64',   # blue-grey  — Tier 1 General Forecaster
+    'balanced' : '#1565C0',   # deep blue  — Tier 2 Balanced
+    'health'   : '#C62828',   # deep red
+    'labour'   : '#E65100',   # deep orange
+    'dm'       : '#6A1B9A',   # purple     — Disaster Mgmt
+    'garment'  : '#00838F',   # dark cyan  — Garment & Apparel
+    'tourism'  : '#00695C',   # teal
+    'energy'   : '#F57F17',   # amber
+    'agri'     : '#2E7D32',   # green      — excluded from Balanced
+    'education': '#0D47A1',   # indigo     — excluded from Balanced
+}
+SECTOR_LABELS = {
+    'gf'       : 'General Forecaster (T1)',
+    'balanced' : 'Balanced Sectoral (T2)',
+    'health'   : 'Human Health',
+    'labour'   : 'Outdoor Labour',
+    'dm'       : 'Disaster Mgmt',
+    'garment'  : 'Garment & Apparel',
+    'tourism'  : 'Tourism',
+    'energy'   : 'Energy',
+    'agri'     : 'Agriculture (excl.)',
+    'education': 'Education (excl.)',
+}
+# Sectors included in Tier 2 Balanced calibration
+BALANCED_SECTORS = ['health', 'labour', 'dm', 'garment', 'tourism', 'energy']
+# All Tier 3 individual sector keys (for charts)
+TIER3_SECTORS = ['health', 'labour', 'dm', 'garment', 'tourism', 'energy', 'agri', 'education']
 
 plt.rcParams.update({
     'font.family': 'DejaVu Sans',
@@ -390,19 +417,32 @@ def chart_loss_curves(train_data, test_data, suffix=''):
     ax.set_title('Model comparison\n(balanced sector loss)', loc='left')
     ax.legend(loc='upper left')
 
-    # Panel 2: sector comparison (calibrated model)
+    # Panel 2: three-tier sector comparison (calibrated model)
     ax2 = axes[1]
-    for sector, color in SECTOR_COLORS.items():
-        sys = HeatWarningSystem(sector=sector, model_type='calibrated')
-        sys.fit(train_data)
-        r = sys.evaluate(test_data)
-        cum = np.cumsum(r['actual_losses'])
-        ax2.plot(cum, label=sector.capitalize(), color=color, linewidth=2)
+    # Tier 1 and Tier 2 as bold reference lines
+    for skey, ls, lw in [('gf', '--', 2.5), ('balanced', '-', 2.5)]:
+        s = HeatWarningSystem(sector=skey, model_type='calibrated')
+        s.fit(train_data)
+        r2 = s.evaluate(test_data)
+        ax2.plot(np.cumsum(r2['actual_losses']), label=SECTOR_LABELS[skey],
+                 color=SECTOR_COLORS[skey], linestyle=ls, linewidth=lw)
+    # Tier 3 individual sectors
+    for sector in TIER3_SECTORS:
+        s = HeatWarningSystem(sector=sector, model_type='calibrated')
+        s.fit(train_data)
+        r2 = s.evaluate(test_data)
+        lw = 1.5 if sector in ('agri', 'education') else 2.0
+        ax2.plot(np.cumsum(r2['actual_losses']),
+                 label=SECTOR_LABELS[sector],
+                 color=SECTOR_COLORS[sector],
+                 linewidth=lw,
+                 linestyle=':' if sector in ('agri', 'education') else '-')
 
     ax2.set_xlabel('Day in evaluation period')
     ax2.set_ylabel('Cumulative loss')
-    ax2.set_title('Sector loss profiles\n(calibrated model)', loc='left')
-    ax2.legend(loc='upper left')
+    ax2.set_title('Three-tier sector loss profiles\n(calibrated model  |  dotted = excluded from Balanced)',
+                  loc='left')
+    ax2.legend(loc='upper left', fontsize=8, ncol=2)
 
     plt.tight_layout()
     path = os.path.join(OUT_DIR, f'4_loss_curves{suffix}.png')
@@ -455,10 +495,25 @@ def chart_decision_heatmap(train_data, suffix=''):
     ax.contour(p3_vals, p4_vals, grid, levels=[1.5, 2.5, 3.5],
                colors='white', linewidths=2, linestyles='--')
 
-    # Panel 2: Sector comparison at same point
+    # Panel 2: Three-tier sector comparison along P(extreme) axis
     ax2 = axes[1]
     p3_scan = np.linspace(0, 0.5, 50)
-    for sector, color in SECTOR_COLORS.items():
+    # Tier 1 + Tier 2 as bold reference lines
+    for skey, ls, lw in [('gf', '--', 2.8), ('balanced', '-', 2.8)]:
+        s = HeatWarningSystem(sector=skey, model_type='calibrated')
+        s.fit(train_data)
+        warn_levels = []
+        for p3 in p3_scan:
+            p4 = p3 * 0.5
+            p1 = max(0, 1 - p3 - p4) * 0.6
+            p2 = max(0, 1 - p1 - p3 - p4)
+            fc = np.array([p1, p2, p3, p4]); fc /= fc.sum()
+            warn_levels.append(s.issue_warning(fc)['warning'])
+        ax2.step(p3_scan, warn_levels, where='mid',
+                 color=SECTOR_COLORS[skey], linewidth=lw, linestyle=ls,
+                 label=SECTOR_LABELS[skey], zorder=3)
+    # Tier 3 sectors
+    for sector in TIER3_SECTORS:
         s = HeatWarningSystem(sector=sector, model_type='calibrated')
         s.fit(train_data)
         warn_levels = []
@@ -468,15 +523,18 @@ def chart_decision_heatmap(train_data, suffix=''):
             p2 = max(0, 1 - p1 - p3 - p4)
             fc = np.array([p1, p2, p3, p4]); fc /= fc.sum()
             warn_levels.append(s.issue_warning(fc)['warning'])
-        ax2.step(p3_scan, warn_levels, where='mid', color=color, linewidth=2.5,
-                 label=sector.capitalize())
+        ls2 = ':' if sector in ('agri', 'education') else '-'
+        ax2.step(p3_scan, warn_levels, where='mid',
+                 color=SECTOR_COLORS[sector], linewidth=1.8, linestyle=ls2,
+                 label=SECTOR_LABELS[sector], alpha=0.8)
 
     ax2.set_yticks([1,2,3,4])
     ax2.set_yticklabels([WARN_SHORT[w] for w in [1,2,3,4]])
     ax2.set_xlabel('P(Cat 3 — Extreme heat) in forecast', fontsize=11)
     ax2.set_ylabel('Issued warning level', fontsize=11)
-    ax2.set_title('Sector comparison along P(extreme) axis\n(P(danger) = 0.5×P(extreme))', loc='left')
-    ax2.legend(loc='lower right')
+    ax2.set_title('Three-tier sector comparison along P(extreme) axis\n'
+                  '(P(danger) = 0.5×P(extreme)  |  dotted = excluded from Balanced)', loc='left')
+    ax2.legend(loc='lower right', fontsize=8)
     ax2.set_ylim(0.5, 4.5)
     ax2.grid(axis='y', alpha=0.3)
 
@@ -492,75 +550,127 @@ def chart_decision_heatmap(train_data, suffix=''):
 # ═══════════════════════════════════════════════════════════════
 
 def chart_advisory_panel(train_data, forecast_p, scenario_label='Scenario A', suffix=''):
-    """One-page advisory panel for a specific forecast."""
-    sys = HeatWarningSystem(sector='balanced', model_type='calibrated')
-    sys.fit(train_data)
-    result = sys.issue_warning(forecast_p)
-    w = result['warning']
+    """Three-tier advisory panel for a specific forecast.
 
-    fig = plt.figure(figsize=(12, 8))
-    fig.patch.set_facecolor(COLORS[w][1])
-    gs = GridSpec(2, 3, figure=fig, hspace=0.5, wspace=0.45)
-    fig.suptitle(f'Sri Lanka Heat IBF — Advisory Output\n{scenario_label}',
-                 fontsize=15, fontweight='bold', y=0.99)
+    Uses the ensemble model (raw forecast probabilities) so that sector
+    differentiation is driven directly by the forecast vector rather than
+    being absorbed by calibration on the synthetic training data.  When
+    real DoM observation data are loaded, switch to model_type='calibrated'.
 
-    # ── Warning level box ──────────────────────────────────
-    ax0 = fig.add_subplot(gs[0, :2])
-    ax0.set_facecolor(COLORS[w][0])
-    ax0.text(0.5, 0.55, WARNING_LABELS[w].upper(), transform=ax0.transAxes,
-             fontsize=20, fontweight='bold', color='white', ha='center', va='center')
-    ax0.text(0.5, 0.20, f'Colombo District — 48-hour advisory',
-             transform=ax0.transAxes, fontsize=11, color='white', ha='center', alpha=0.9)
-    ax0.set_xticks([]); ax0.set_yticks([])
-    for spine in ax0.spines.values(): spine.set_visible(False)
+    Shows Tier 1 Hazard Warning (GF), Tier 2 Impact Advisory (Balanced), and Tier 3 Decision Advisory bar alongside
+    calibrated probabilities and the Tier 2 sector action table.
+    """
+    # ── Compute all three tiers (ensemble model preserves forecast signal) ─
+    sys_gf = HeatWarningSystem(sector='gf', model_type='ensemble')
+    r_gf = sys_gf.issue_warning(forecast_p)
+    w_gf = r_gf['warning']
 
-    # ── Expected loss bar chart ────────────────────────────
-    ax1 = fig.add_subplot(gs[0, 2])
-    ax1.set_facecolor('white')
-    el = list(result['expected_losses'].values())
-    warn_names = [WARN_SHORT[i+1] for i in range(4)]
-    bar_colors = [COLORS[i+1][0] for i in range(4)]
-    bars = ax1.barh(warn_names, el, color=bar_colors, alpha=0.85)
-    bars[w-1].set_edgecolor('black'); bars[w-1].set_linewidth(2)
-    ax1.set_xlabel('Expected loss')
-    ax1.set_title('Expected loss\nby warning level', fontsize=10, fontweight='bold')
-    ax1.invert_yaxis()
-    ax1.set_facecolor('#FAFAFA')
+    sys_bal = HeatWarningSystem(sector='balanced', model_type='ensemble')
+    r_bal = sys_bal.issue_warning(forecast_p)
+    w_bal = r_bal['warning']
 
-    # ── Forecast probabilities ─────────────────────────────
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax2.set_facecolor('white')
-    cat_names = ['Normal', 'Caution', 'Extreme', 'Danger']
-    pvals = list(result['p_by_state'].values())
-    bar_colors2 = [COLORS[i+1][0] for i in range(4)]
-    ax2.bar(cat_names, pvals, color=bar_colors2, alpha=0.85, edgecolor='white')
-    ax2.set_ylabel('Probability')
-    ax2.set_title('Calibrated forecast\nprobabilities', fontsize=10, fontweight='bold')
-    ax2.set_ylim(0, 1.05)
-    ax2.tick_params(axis='x', labelsize=9)
-    ax2.set_facecolor('#FAFAFA')
+    t3_warnings = {}
+    for skey in TIER3_SECTORS:
+        s = HeatWarningSystem(sector=skey, model_type='ensemble')
+        t3_warnings[skey] = s.issue_warning(forecast_p)['warning']
 
-    # ── Sector actions ────────────────────────────────────
-    ax3 = fig.add_subplot(gs[1, 1:])
-    ax3.set_facecolor('white')
-    ax3.axis('off')
-    sector_actions_brief = SECTOR_ACTIONS[w]
-    y = 0.95
-    ax3.set_title('Sector actions', fontsize=10, fontweight='bold', loc='left', pad=6)
-    sector_colors_brief = {'Health': '#C62828', 'Agri': '#2E7D32',
-                           'Labour': '#E65100', 'Education': '#1565C0', 'DMC': '#6A1B9A'}
-    for sector, actions in sector_actions_brief.items():
-        color = sector_colors_brief.get(sector, '#333333')
-        ax3.text(0.0, y, f'[{sector}]', transform=ax3.transAxes,
-                 fontsize=9, fontweight='bold', color=color, va='top')
-        y -= 0.085
-        for action in actions[:2]:
-            wrapped = action[:72] + ('…' if len(action) > 72 else '')
-            ax3.text(0.03, y, f'• {wrapped}', transform=ax3.transAxes,
-                     fontsize=8, color='#333333', va='top')
-            y -= 0.075
-        if y < 0.1:
-            break
+    fig = plt.figure(figsize=(14, 10))
+    fig.patch.set_facecolor(COLORS[w_bal][1])
+    gs = GridSpec(3, 3, figure=fig, hspace=0.6, wspace=0.42)
+    fig.suptitle(f'Sri Lanka Heat IBF — Three-Tier Advisory\n{scenario_label}',
+                 fontsize=14, fontweight='bold', y=0.99)
+
+    # ── Row 0: Tier 1 box ─────────────────────────────────
+    ax_t1 = fig.add_subplot(gs[0, 0])
+    ax_t1.set_facecolor(COLORS[w_gf][0])
+    ax_t1.text(0.5, 0.65, 'TIER 1 — GENERAL FORECASTER', transform=ax_t1.transAxes,
+               fontsize=8.5, color='white', ha='center', alpha=0.85, va='center')
+    ax_t1.text(0.5, 0.35, WARNING_LABELS[w_gf].upper(), transform=ax_t1.transAxes,
+               fontsize=14, fontweight='bold', color='white', ha='center', va='center')
+    ax_t1.text(0.5, 0.12, 'p* ≈ 0.50  |  pure meteorology',
+               transform=ax_t1.transAxes, fontsize=8, color='white', ha='center', alpha=0.8)
+    ax_t1.set_xticks([]); ax_t1.set_yticks([])
+    for spine in ax_t1.spines.values(): spine.set_visible(False)
+
+    # ── Row 0: Tier 2 box ─────────────────────────────────
+    ax_t2 = fig.add_subplot(gs[0, 1])
+    ax_t2.set_facecolor(COLORS[w_bal][0])
+    ax_t2.text(0.5, 0.65, 'TIER 2 — BALANCED SECTORAL', transform=ax_t2.transAxes,
+               fontsize=8.5, color='white', ha='center', alpha=0.85, va='center')
+    ax_t2.text(0.5, 0.35, WARNING_LABELS[w_bal].upper(), transform=ax_t2.transAxes,
+               fontsize=14, fontweight='bold', color='white', ha='center', va='center')
+    ax_t2.text(0.5, 0.12, 'p* ≈ 0.40  |  5 heat-critical sectors',
+               transform=ax_t2.transAxes, fontsize=8, color='white', ha='center', alpha=0.8)
+    ax_t2.set_xticks([]); ax_t2.set_yticks([])
+    for spine in ax_t2.spines.values(): spine.set_visible(False)
+
+    # ── Row 0: Expected loss bar (Tier 2) ─────────────────
+    ax_el = fig.add_subplot(gs[0, 2])
+    ax_el.set_facecolor('white')
+    el = list(r_bal['expected_losses'].values())
+    bars = ax_el.barh([WARN_SHORT[i+1] for i in range(4)], el,
+                      color=[COLORS[i+1][0] for i in range(4)], alpha=0.85)
+    bars[w_bal-1].set_edgecolor('black'); bars[w_bal-1].set_linewidth(2)
+    ax_el.set_xlabel('Expected loss')
+    ax_el.set_title('Tier 2 Impact Advisory — expected loss', fontsize=10, fontweight='bold')
+    ax_el.invert_yaxis()
+    ax_el.set_facecolor('#FAFAFA')
+
+    # ── Row 1: Calibrated probabilities ───────────────────
+    ax_probs = fig.add_subplot(gs[1, 0])
+    ax_probs.set_facecolor('white')
+    pvals = list(r_bal['p_by_state'].values())
+    ax_probs.bar(['Normal', 'Caution', 'Extreme', 'Danger'], pvals,
+                 color=[COLORS[i+1][0] for i in range(4)], alpha=0.85, edgecolor='white')
+    ax_probs.set_ylabel('Probability')
+    ax_probs.set_title('Calibrated forecast\nprobabilities', fontsize=10, fontweight='bold')
+    ax_probs.set_ylim(0, 1.05)
+    ax_probs.tick_params(axis='x', labelsize=9)
+    ax_probs.set_facecolor('#FAFAFA')
+
+    # ── Row 1: Tier 3 sector comparison bar ───────────────
+    ax_t3 = fig.add_subplot(gs[1, 1:])
+    ax_t3.set_facecolor('white')
+    ax_t3.set_title('Tier 3 — Decision Advisory by sector', fontsize=10, fontweight='bold')
+    tick_labels = [SECTOR_LABELS[k].replace(' (excl.)', '*') for k in TIER3_SECTORS]
+    bar_c = [COLORS[t3_warnings[k]][0] for k in TIER3_SECTORS]
+    ax_t3.bar(tick_labels, [t3_warnings[k] for k in TIER3_SECTORS],
+              color=bar_c, alpha=0.85)
+    ax_t3.axhline(w_gf,  color=SECTOR_COLORS['gf'],      linewidth=2, linestyle='--',
+                  label=f'Tier 1 GF ({WARN_SHORT[w_gf]})')
+    ax_t3.axhline(w_bal, color=SECTOR_COLORS['balanced'], linewidth=2, linestyle='-',
+                  label=f'Tier 2 Balanced ({WARN_SHORT[w_bal]})')
+    ax_t3.set_yticks([1, 2, 3, 4])
+    ax_t3.set_yticklabels(['Green', 'Yellow', 'Amber', 'Red'])
+    ax_t3.set_ylabel('Optimal warning level')
+    ax_t3.tick_params(axis='x', labelsize=8, rotation=20)
+    ax_t3.legend(fontsize=9)
+    ax_t3.text(6.5, 0.75, '* excl. from\n  Balanced', fontsize=7, color='#666',
+               ha='right', va='bottom')
+
+    # ── Row 2: Sector action table (Tier 2 Balanced) ──────
+    ax_act = fig.add_subplot(gs[2, :])
+    ax_act.axis('off')
+    ax_act.set_facecolor('white')
+    ax_act.set_title(f'Sector actions — Tier 2 Impact Advisory: {WARNING_LABELS[w_bal]}',
+                     fontsize=10, fontweight='bold', loc='left', pad=6)
+    sector_col_map = {
+        'Health'   : '#C62828', 'Labour'   : '#E65100', 'DM'       : '#6A1B9A',
+        'Tourism'  : '#00695C', 'Energy'   : '#F57F17', 'Agri'     : '#2E7D32',
+        'Education': '#0D47A1',
+    }
+    col = 0; col_width = 0.33
+    for sector, actions in SECTOR_ACTIONS[w_bal].items():
+        color = sector_col_map.get(sector, '#333333')
+        x_off = (col % 3) * col_width
+        row_y = 0.97 - (col // 3) * 0.55
+        ax_act.text(x_off, row_y, f'[{sector}]', transform=ax_act.transAxes,
+                    fontsize=9, fontweight='bold', color=color, va='top')
+        for k, action in enumerate(actions[:2]):
+            ax_act.text(x_off + 0.01, row_y - 0.12*(k+1),
+                        '• ' + action[:68] + ('…' if len(action) > 68 else ''),
+                        transform=ax_act.transAxes, fontsize=7.5, color='#333333', va='top')
+        col += 1
 
     plt.tight_layout()
     path = os.path.join(OUT_DIR, f'6_advisory_{suffix or "A"}.png')
@@ -657,11 +767,19 @@ def main():
     chart_loss_curves(train_data, test_data, suffix=suffix)
     chart_decision_heatmap(train_data, suffix=suffix)
 
-    # Advisory panels for three representative scenarios
+    # Advisory panels for three representative scenarios.
+    # Forecasts are chosen to produce clear sector differentiation:
+    #   A: 3 distinct levels — Agri/Educ=Yellow, GF/Tourism/Energy=Amber,
+    #      Balanced/Health/Labour/DM=Red.  Impact Advisory (Tier 2) is visibly more precautionary
+    #      than Hazard Warning (Tier 1), justifying the three-tier architecture.
+    #   B: Cost-sensitive lag — all heat-critical sectors escalate to Red while
+    #      Agriculture/Education (excluded from Balanced) hold at Amber.
+    #   C: Near-consensus critical heat — even Education reaches Red; only
+    #      Agriculture stays one level lower due to its high mobilisation cost.
     scenarios = [
-        ([0.55, 0.30, 0.10, 0.05], 'Scenario_A_Low_Risk'),
-        ([0.15, 0.40, 0.35, 0.10], 'Scenario_B_Heat_Alert'),
-        ([0.05, 0.10, 0.30, 0.55], 'Scenario_C_Heat_Warning'),
+        ([0.45, 0.32, 0.15, 0.08], 'Scenario_A_Sector_Divergence'),
+        ([0.20, 0.35, 0.28, 0.17], 'Scenario_B_Cost_Sensitive_Lag'),
+        ([0.05, 0.10, 0.35, 0.50], 'Scenario_C_Critical_Heat'),
     ]
     for fp, label in scenarios:
         chart_advisory_panel(train_data, fp, scenario_label=label.replace('_', ' '), suffix=label)
