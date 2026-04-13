@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Personal Heat Risk Profile</title>
+<style>
+:root {
+  --blue:     #1565C0;
+  --blue-l:   #E3F2FD;
+  --blue-d:   #0D47A1;
+  --heat:     #E65100;
+  --heat-l:   #FFF3E0;
+  --green:    #2E7D32;
+  --green-l:  #E8F5E9;
+  --yellow:   #F57F17;
+  --yellow-l: #FFFDE7;
+  --amber:    #E65100;
+  --amber-l:  #FFF3E0;
+  --red:      #C62828;
+  --red-l:    #FFEBEE;
+  --bg:       #F0F4F8;
+  --card:     #FFFFFF;
+  --text:     #1A1A2E;
+  --text-l:   #6B7280;
+  --border:   #E2E8F0;
+  --r:        14px;
+  --shadow:   0 2px 12px rgba(0,0,0,0.08);
+}
+*  { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, #1565C0 0%, #E65100 100%);
+  padding: 14px 20px;
+  text-align: center;
+  color: white;
+}
+.header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.header p  { font-size: 12px; opacity: .80; margin-top: 2px; }
+
+/* ── Progress bar ── */
+.prog {
+  background: white;
+  padding: 10px 20px 8px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.prog-bar  { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--heat));
+  border-radius: 99px;
+  transition: width .4s ease;
+}
+.prog-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-l);
+  margin-top: 5px;
+}
+
+/* ── Layout ── */
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border-radius: var(--r);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+
+/* ── Screen header ── */
+.stitle { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 5px; }
+.ssub  { font-size: 14px; color: var(--text-l); line-height: 1.55; margin-bottom: 20px; }
+
+/* ── Section label ── */
+.slabel {
+  font-size: 12px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text-l);
+  margin: 20px 0 10px;
+}
+.slabel:first-child { margin-top: 0; }
+
+/* ── Option card (single-select) ── */
+.og { display: flex; flex-direction: column; gap: 9px; }
+.opt {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 15px;
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.opt:active { opacity: .85; }
+.opt.sel { border-color: var(--blue); background: var(--blue-l); }
+.oi { font-size: 20px; line-height: 1; flex-shrink: 0; }
+.ol { font-size: 15px; font-weight: 600; }
+.os { font-size: 13px; color: var(--text-l); margin-top: 1px; }
+
+/* ── Checkbox card (multi-select) ── */
+.cg { display: flex; flex-direction: column; gap: 9px; }
+.chk {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 15px;
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.chk.on { border-color: var(--blue); background: var(--blue-l); }
+.cb {
+  width: 22px; height: 22px; border-radius: 6px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  transition: background .15s, border-color .15s;
+  color: transparent;
+}
+.chk.on .cb { background: var(--blue); border-color: var(--blue); color: white; }
+.cl { font-size: 15px; font-weight: 500; line-height: 1.4; }
+.cs { font-size: 12px; color: var(--text-l); margin-top: 2px; }
+
+/* ── Toggle row ── */
+.tg { display: flex; gap: 9px; }
+.tbtn {
+  flex: 1; padding: 13px 8px;
+  text-align: center;
+  border: 2px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 14px; font-weight: 600;
+  background: white;
+  transition: all .15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tbtn.sel { border-color: var(--blue); background: var(--blue-l); color: var(--blue); }
+
+/* ── Buttons ── */
+.btn {
+  display: block; width: 100%;
+  padding: 15px;
+  border: none; border-radius: 11px;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.98); opacity: .9; }
+.btn-pri  { background: var(--blue); color: white; }
+.btn-heat { background: linear-gradient(135deg, var(--blue), var(--heat)); color: white; }
+.btn-sec  { background: var(--border); color: var(--text); }
+.btn-back {
+  background: none; border: none;
+  color: var(--text-l); font-size: 14px;
+  padding: 8px 0; cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 6px;
+}
+
+/* ── Validation error ── */
+.errmsg {
+  color: var(--red); font-size: 13px;
+  padding: 9px 13px;
+  background: var(--red-l);
+  border-radius: 8px;
+  margin-top: 12px;
+  display: none;
+}
+.errmsg.show { display: block; }
+
+/* ── Info note ── */
+.note {
+  background: var(--blue-l);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 13px;
+  font-size: 13px; color: #1E3A5F; line-height: 1.55;
+}
+
+/* ── Welcome ── */
+.w-icon  { font-size: 52px; text-align: center; margin-bottom: 14px; }
+.w-title { font-size: 26px; font-weight: 900; letter-spacing: -.6px; text-align: center; margin-bottom: 9px; }
+.w-sub   { font-size: 15px; color: var(--text-l); text-align: center; line-height: 1.6; margin-bottom: 22px; }
+.w-steps { display: flex; flex-direction: column; gap: 9px; margin-bottom: 22px; }
+.ws { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.wdot {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--blue-l); color: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; flex-shrink: 0;
+}
+
+/* ── Gauge ── */
+.gauge-svg  { display:block; width:100%; max-width:300px; height:auto; margin:0 auto; }
+.gauge-val  { font-size: 42px; font-weight: 900; line-height: 1; }
+.gauge-unit { font-size: 12px; color: var(--text-l); margin-top: 3px; }
+
+/* ── Risk badge ── */
+.rbadge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px; border-radius: 99px;
+  font-size: 15px; font-weight: 700;
+  margin: 10px auto;
+}
+
+/* ── Results ── */
+.rsec { margin-bottom: 14px; }
+.rsec h3 {
+  font-size: 12px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text-l); margin-bottom: 10px;
+}
+.lvl-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px; border-radius: 10px; margin-bottom: 8px;
+  font-size: 14px;
+}
+.lvl-row .ln { font-weight: 700; }
+.lvl-row .la { color: var(--text-l); font-size: 12px; }
+.fl { display: flex; flex-direction: column; gap: 8px; }
+.fi {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 13px; background: var(--bg); border-radius: 10px;
+  font-size: 14px; line-height: 1.45;
+}
+.fi-i { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+.tl { display: flex; flex-direction: column; gap: 9px; }
+.ti {
+  display: flex; gap: 11px;
+  padding: 12px 13px; background: var(--green-l);
+  border-radius: 10px; font-size: 14px; line-height: 1.5;
+}
+.ti-i { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+.disc {
+  font-size: 12px; color: var(--text-l);
+  text-align: center; line-height: 1.6;
+  padding: 0 10px; margin-top: 18px;
+}
+@media (max-width: 360px) {
+  .wrap  { padding: 14px 12px 40px; }
+  .stitle { font-size: 20px; }
+  .gauge-val { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌡️ Personal Heat Risk Profile</h1>
+  <p>Sri Lanka Department of Meteorology · Colombo Pilot</p>
+</div>
+
+<div class="prog" id="prog" style="display:none">
+  <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="prog-meta">
+    <span id="prog-step">Step 1 of 5</span>
+    <span id="prog-lbl">About You</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ══ S0 · Welcome ══════════════════════════════════════════════════ -->
+<div class="screen active" id="s0">
+  <div class="w-icon">🌡️</div>
+  <div class="w-title">Know your heat risk</div>
+  <div class="w-sub">Find out when rising temperatures become a real risk for you — based on your health, daily routine, and circumstances.</div>
+
+  <div class="w-steps">
+    <div class="ws"><div class="wdot">5</div><span>short questions about your health and daily life</span></div>
+    <div class="ws"><div class="wdot">3</div><span>minutes to complete</span></div>
+    <div class="ws"><div class="wdot">1</div><span>personalised heat action threshold, just for you</span></div>
+  </div>
+
+  <button class="btn btn-heat" onclick="go(1)">Get started →</button>
+  <p class="disc" style="margin-top:14px;">Planning guidance only — not a substitute for medical advice. If you feel unwell in the heat, seek help immediately.</p>
+</div>
+
+<!-- ══ S1 · About You ════════════════════════════════════════════════ -->
+<div class="screen" id="s1">
+  <button class="btn-back" onclick="go(0)">← Back</button>
+  <div class="stitle">About you</div>
+  <div class="ssub">Your age is one of the most important factors in how heat affects your body.</div>
+
+  <div class="slabel">Age group</div>
+  <div class="og" id="age-og">
+    <div class="opt" data-val="u18"  onclick="pick(this,'age')"><span class="oi">🧒</span><div><div class="ol">Under 18</div><div class="os">Child or teenager</div></div></div>
+    <div class="opt" data-val="a18"  onclick="pick(this,'age')"><span class="oi">🧑</span><div><div class="ol">18 to 44</div><div class="os">Young adult</div></div></div>
+    <div class="opt" data-val="a45"  onclick="pick(this,'age')"><span class="oi">🧑‍💼</span><div><div class="ol">45 to 64</div><div class="os">Middle-aged adult</div></div></div>
+    <div class="opt" data-val="a65"  onclick="pick(this,'age')"><span class="oi">🧓</span><div><div class="ol">65 to 74</div><div class="os">Older adult</div></div></div>
+    <div class="opt" data-val="a75"  onclick="pick(this,'age')"><span class="oi">👴</span><div><div class="ol">75 or over</div><div class="os">Elder adult</div></div></div>
+  </div>
+
+  <div class="slabel">Pregnancy</div>
+  <div class="tg" id="preg-tg">
+    <div class="tbtn" data-val="no"  onclick="pick(this,'preg')">Not pregnant</div>
+    <div class="tbtn" data-val="yes" onclick="pick(this,'preg')">Currently pregnant</div>
+  </div>
+
+  <div class="errmsg" id="err1">Please select your age group to continue.</div>
+  <br>
+  <button class="btn btn-pri" onclick="go(2)">Continue →</button>
+</div>
+
+<!-- ══ S2 · Health Conditions ════════════════════════════════════════ -->
+<div class="screen" id="s2">
+  <button class="btn-back" onclick="go(1)">← Back</button>
+  <div class="stitle">Health conditions</div>
+  <div class="ssub">These affect how your body responds to heat. Select all that apply — if unsure, leave unchecked.</div>
+
+  <div class="cg" id="cond-cg">
+    <div class="chk" data-val="cvd"  onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Heart disease or high blood pressure</div></div></div>
+    <div class="chk" data-val="dm"   onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Diabetes (Type 1 or Type 2)</div></div></div>
+    <div class="chk" data-val="ckd"  onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Kidney disease</div></div></div>
+    <div class="chk" data-val="resp" onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Lung or breathing condition</div><div class="cs">Asthma, COPD, or similar</div></div></div>
+    <div class="chk" data-val="mh"   onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Mental health condition</div></div></div>
+    <div class="chk" data-val="ob"   onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">Obesity or significantly overweight</div></div></div>
+    <div class="chk" data-val="none" onclick="tog(this,'cond')"><div class="cb">✓</div><div><div class="cl">None of these</div></div></div>
+  </div>
+
+  <br>
+  <button class="btn btn-pri" onclick="go(3)">Continue →</button>
+</div>
+
+<!-- ══ S3 · Medications ══════════════════════════════════════════════ -->
+<div class="screen" id="s3">
+  <button class="btn-back" onclick="go(2)">← Back</button>
+  <div class="stitle">Medications</div>
+  <div class="ssub">Some medications reduce your body's ability to cool down. Select any you take regularly.</div>
+
+  <div class="note" style="margin-bottom:16px;">Don't worry if you're unsure — select what you recognise and talk to your doctor or pharmacist for specific advice.</div>
+
+  <div class="cg" id="med-cg">
+    <div class="chk" data-val="diur"  onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">Water tablets (diuretics)</div><div class="cs">e.g. furosemide, hydrochlorothiazide</div></div></div>
+    <div class="chk" data-val="bp"    onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">Blood pressure tablets</div><div class="cs">Beta-blockers, ACE inhibitors, calcium channel blockers</div></div></div>
+    <div class="chk" data-val="antip" onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">Antipsychotics or mood stabilisers</div><div class="cs">Including lithium, risperidone, olanzapine</div></div></div>
+    <div class="chk" data-val="anti"  onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">Antihistamines or bladder control tablets</div><div class="cs">Older antihistamines, oxybutynin, tolterodine</div></div></div>
+    <div class="chk" data-val="dmeds" onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">Diabetes medication</div><div class="cs">Insulin, metformin, or other blood sugar tablets</div></div></div>
+    <div class="chk" data-val="none"  onclick="tog(this,'med')"><div class="cb">✓</div><div><div class="cl">No regular medication / not sure</div></div></div>
+  </div>
+
+  <br>
+  <button class="btn btn-pri" onclick="go(4)">Continue →</button>
+</div>
+
+<!-- ══ S4 · Daily Routine ════════════════════════════════════════════ -->
+<div class="screen" id="s4">
+  <button class="btn-back" onclick="go(3)">← Back</button>
+  <div class="stitle">Your daily routine</div>
+  <div class="ssub">How you spend the hottest part of the day — and how well you recover overnight — shapes your total heat exposure.</div>
+
+  <div class="slabel">Outdoors during 11am–3pm</div>
+  <div class="og" id="out-og">
+    <div class="opt" data-val="none" onclick="pick(this,'outdoor')"><span class="oi">🏠</span><div><div class="ol">None or very little</div><div class="os">Mostly indoors during those hours</div></div></div>
+    <div class="opt" data-val="low"  onclick="pick(this,'outdoor')"><span class="oi">🚶</span><div><div class="ol">Around 1–2 hours</div><div class="os">Some outdoor time, e.g. commuting</div></div></div>
+    <div class="opt" data-val="med"  onclick="pick(this,'outdoor')"><span class="oi">🏗️</span><div><div class="ol">Around 3–4 hours</div><div class="os">Regular outdoor activities or work</div></div></div>
+    <div class="opt" data-val="high" onclick="pick(this,'outdoor')"><span class="oi">☀️</span><div><div class="ol">Most of the day outdoors</div><div class="os">Outdoor work, farming, long exposure</div></div></div>
+  </div>
+
+  <div class="slabel">Daytime environment</div>
+  <div class="og" id="day-og">
+    <div class="opt" data-val="ac"       onclick="pick(this,'daytime')"><span class="oi">❄️</span><div><div class="ol">Air-conditioned</div><div class="os">Office, vehicle with AC, or home AC</div></div></div>
+    <div class="opt" data-val="fan"      onclick="pick(this,'daytime')"><span class="oi">💨</span><div><div class="ol">Fan, but no AC</div></div></div>
+    <div class="opt" data-val="none_c"   onclick="pick(this,'daytime')"><span class="oi">🏚️</span><div><div class="ol">No fan or AC</div></div></div>
+    <div class="opt" data-val="out"      onclick="pick(this,'daytime')"><span class="oi">🌳</span><div><div class="ol">Mostly outdoors</div></div></div>
+  </div>
+
+  <div class="slabel">Sleeping at night</div>
+  <div class="og" id="night-og">
+    <div class="opt" data-val="cool" onclick="pick(this,'night')"><span class="oi">🌙</span><div><div class="ol">Cool and comfortable</div><div class="os">AC or naturally cool room</div></div></div>
+    <div class="opt" data-val="warm" onclick="pick(this,'night')"><span class="oi">🌡️</span><div><div class="ol">Warm but manageable</div></div></div>
+    <div class="opt" data-val="hot"  onclick="pick(this,'night')"><span class="oi">🔥</span><div><div class="ol">Very hot — hard to sleep</div><div class="os">Metal roof, top floor, or poor ventilation</div></div></div>
+  </div>
+
+  <div class="errmsg" id="err4">Please answer all three questions above to continue.</div>
+  <br>
+  <button class="btn btn-pri" onclick="go(5)">Continue →</button>
+</div>
+
+<!-- ══ S5 · Taking Action ════════════════════════════════════════════ -->
+<div class="screen" id="s5">
+  <button class="btn-back" onclick="go(4)">← Back</button>
+  <div class="stitle">Taking action</div>
+  <div class="ssub">When a heat warning is issued, how easy is it for you to take precautions?</div>
+
+  <div class="slabel">Adjusting your routine</div>
+  <div class="og" id="flex-og">
+    <div class="opt" data-val="easy" onclick="pick(this,'flex')"><span class="oi">✅</span><div><div class="ol">Easy</div><div class="os">Flexible schedule — staying cool is straightforward</div></div></div>
+    <div class="opt" data-val="mod"  onclick="pick(this,'flex')"><span class="oi">🔄</span><div><div class="ol">With some effort</div><div class="os">Some constraints, but I can usually adapt</div></div></div>
+    <div class="opt" data-val="hard" onclick="pick(this,'flex')"><span class="oi">⚠️</span><div><div class="ol">Difficult</div><div class="os">Work or family commitments make it hard</div></div></div>
+    <div class="opt" data-val="no"   onclick="pick(this,'flex')"><span class="oi">🚫</span><div><div class="ol">Not possible</div><div class="os">Outdoor work I cannot miss or avoid</div></div></div>
+  </div>
+
+  <div class="slabel">Access to a cool space</div>
+  <div class="og" id="cool-og">
+    <div class="opt" data-val="yes"   onclick="pick(this,'cool')"><span class="oi">🏪</span><div><div class="ol">Yes, easily</div><div class="os">Shop, library, clinic, or friend with AC nearby</div></div></div>
+    <div class="opt" data-val="maybe" onclick="pick(this,'cool')"><span class="oi">🚌</span><div><div class="ol">Possible but takes effort</div><div class="os">Costs time or money to get there</div></div></div>
+    <div class="opt" data-val="no"    onclick="pick(this,'cool')"><span class="oi">❌</span><div><div class="ol">Not really</div><div class="os">No cool space I can easily reach</div></div></div>
+  </div>
+
+  <div class="slabel">If you feel unwell</div>
+  <div class="og" id="help-og">
+    <div class="opt" data-val="yes"   onclick="pick(this,'help')"><span class="oi">👨‍👩‍👧</span><div><div class="ol">Someone is usually around</div><div class="os">I live with family or others who would notice</div></div></div>
+    <div class="opt" data-val="maybe" onclick="pick(this,'help')"><span class="oi">📱</span><div><div class="ol">I live alone but stay in touch</div><div class="os">Regular contact with neighbours or family</div></div></div>
+    <div class="opt" data-val="no"    onclick="pick(this,'help')"><span class="oi">🚪</span><div><div class="ol">I live alone and may not see anyone</div><div class="os">Could go a day or more without contact</div></div></div>
+  </div>
+
+  <div class="errmsg" id="err5">Please answer all three questions above.</div>
+  <br>
+  <button class="btn btn-heat" onclick="doResults()">See my risk profile →</button>
+</div>
+
+<!-- ══ Results ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-r">
+
+  <div class="card" style="text-align:center;padding-bottom:12px;">
+    <h2 style="font-size:19px;font-weight:800;margin-bottom:4px;">Your Heat Risk Profile</h2>
+    <p style="font-size:12px;color:var(--text-l);margin-bottom:10px;" id="r-meta"></p>
+
+    <!-- Gauge -->
+    <svg class="gauge-svg" viewBox="0 0 280 155" style="margin-top:6px;">
+      <!-- Track -->
+      <path d="M 18 148 A 122 122 0 0 1 262 148" fill="none" stroke="#EEEEEE" stroke-width="20" stroke-linecap="round"/>
+      <!-- Zone tints (thirds: LOW 18→79,42  MID 79,42→201,42  HIGH 201,42→262,148) -->
+      <path d="M 18 148 A 122 122 0 0 1 79 42"   fill="none" stroke="#43A047" stroke-width="5" stroke-linecap="round" opacity=".22"/>
+      <path d="M 79 42  A 122 122 0 0 1 201 42"  fill="none" stroke="#FB8C00" stroke-width="5" stroke-linecap="round" opacity=".22"/>
+      <path d="M 201 42 A 122 122 0 0 1 262 148" fill="none" stroke="#E53935" stroke-width="5" stroke-linecap="round" opacity=".22"/>
+      <!-- Fill -->
+      <path id="r-fill" fill="none" stroke="#43A047" stroke-width="20" stroke-linecap="round"
+            d="M 18 148 A 122 122 0 0 1 262 148"
+            style="stroke-dasharray:383.27;stroke-dashoffset:383.27;transition:stroke-dashoffset .9s ease,stroke .4s ease;"/>
+      <!-- Needle -->
+      <g id="r-needle" style="transform-origin:140px 148px;transform:rotate(-90deg);transition:transform .85s ease">
+        <line x1="140" y1="148" x2="140" y2="32" stroke="#1A237E" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="140" cy="148" r="9"   fill="#1A237E"/>
+        <circle cx="140" cy="148" r="4.5" fill="white"/>
+      </g>
+      <text x="8"   y="134" font-size="11" fill="#43A047" font-weight="bold">LOW</text>
+      <text x="140" y="17"  font-size="11" fill="#FB8C00" font-weight="bold" text-anchor="middle">MID</text>
+      <text x="234" y="134" font-size="11" fill="#E53935" font-weight="bold">HIGH</text>
+    </svg>
+
+    <div style="margin-top:12px;margin-bottom:14px;">
+      <div class="gauge-val" id="r-val">—</div>
+      <div class="gauge-unit">personal threshold (p*)</div>
+    </div>
+
+    <div id="r-badge" class="rbadge"></div>
+    <p style="font-size:13px;color:var(--text-l);margin-top:10px;line-height:1.5;" id="r-trig-txt"></p>
+  </div>
+
+  <!-- Alert level table -->
+  <div class="card rsec">
+    <h3>When to take action</h3>
+    <div id="r-levels"></div>
+  </div>
+
+  <!-- Key risk factors -->
+  <div class="card rsec">
+    <h3>Your key risk factors</h3>
+    <div class="fl" id="r-factors"></div>
+  </div>
+
+  <!-- Tips -->
+  <div class="card rsec">
+    <h3>Your personalised actions</h3>
+    <div class="tl" id="r-tips"></div>
+  </div>
+
+  <!-- Support flag (conditional) -->
+  <div class="card" id="r-support" style="display:none;background:var(--amber-l);border:1px solid #FFCC80;">
+    <div style="font-size:15px;font-weight:700;color:var(--amber);margin-bottom:6px;">⚠️ Your situation may need extra support</div>
+    <p style="font-size:13px;line-height:1.55;" id="r-support-txt"></p>
+  </div>
+
+  <p class="disc">This profile is a planning guide based on established heat-health risk factors. It does not replace medical advice. If you feel unwell during hot weather, seek help immediately.</p>
+
+  <div style="margin-top:20px;">
+    <button class="btn btn-sec" onclick="restart()">← Start again</button>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// ── State ────────────────────────────────────────────────────────────
+const S = {
+  age: null, preg: 'no',
+  cond: new Set(), med: new Set(),
+  outdoor: null, daytime: null, night: null,
+  flex: null, cool: null, help: null,
+};
+
+// ── Screen management ─────────────────────────────────────────────────
+const SCREENS = ['s0','s1','s2','s3','s4','s5','s-r'];
+const PLABELS  = ['','About You','Health','Medications','Daily Routine','Taking Action',''];
+let cur = 0;
+
+function go(n) {
+  if (n > cur) {
+    const e = validate(cur);
+    if (e) { showErr('err'+cur, e); return; }
+    clearErrs();
+  }
+  SCREENS.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('active'); });
+  document.getElementById(SCREENS[n]).classList.add('active');
+  cur = n;
+  progUpdate(n);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function progUpdate(n) {
+  const el = document.getElementById('prog');
+  if (n === 0 || n === 6) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  document.getElementById('prog-fill').style.width = (n / 5 * 100) + '%';
+  document.getElementById('prog-step').textContent = 'Step ' + n + ' of 5';
+  document.getElementById('prog-lbl').textContent  = PLABELS[n];
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+function clearErrs() {
+  ['err1','err4','err5'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+}
+
+// ── Interactions ──────────────────────────────────────────────────────
+function pick(el, key) {
+  el.closest('.og, .tg').querySelectorAll('.opt, .tbtn').forEach(o => o.classList.remove('sel'));
+  el.classList.add('sel');
+  S[key] = el.dataset.val;
+}
+
+function tog(el, key) {
+  const val = el.dataset.val;
+  const set = key === 'cond' ? S.cond : S.med;
+  if (val === 'none') {
+    if (set.has('none')) { el.classList.remove('on'); set.delete('none'); }
+    else {
+      el.closest('.cg').querySelectorAll('.chk').forEach(c => { c.classList.remove('on'); set.delete(c.dataset.val); });
+      el.classList.add('on'); set.add('none');
+    }
+  } else {
+    set.delete('none');
+    el.closest('.cg').querySelector('[data-val="none"]')?.classList.remove('on');
+    if (set.has(val)) { el.classList.remove('on'); set.delete(val); }
+    else              { el.classList.add('on');    set.add(val);    }
+  }
+}
+
+// ── Validation ────────────────────────────────────────────────────────
+function validate(n) {
+  if (n === 1 && !S.age) return 'Please select your age group to continue.';
+  if (n === 4 && (!S.outdoor || !S.daytime || !S.night))
+    return 'Please answer all three questions above to continue.';
+  if (n === 5 && (!S.flex || !S.cool || !S.help))
+    return 'Please answer all three questions above.';
+  return null;
+}
+
+// ── Scoring ───────────────────────────────────────────────────────────
+function compute() {
+  // ── Vulnerability index (vi) ──────────────────────────────────────
+  let vi = 0;
+  vi += { u18:8, a18:12, a45:22, a65:38, a75:55 }[S.age] || 12;
+  if (S.preg === 'yes') vi += 25;
+  const cmap = { cvd:18, dm:15, ckd:15, resp:12, mh:10, ob:10 };
+  S.cond.forEach(c => { vi += cmap[c] || 0; });
+  const mmap = { diur:12, bp:10, antip:15, anti:12, dmeds:8 };
+  S.med.forEach(m => { vi += mmap[m] || 0; });
+  vi += { none:0, low:8,  med:16, high:25 }[S.outdoor] || 0;
+  vi += { ac:0,   fan:10, none_c:18, out:25 }[S.daytime] || 0;
+  vi += { cool:0, warm:8, hot:16 }[S.night] || 0;
+  vi += { yes:0,  maybe:6, no:14 }[S.help] || 0;
+  const risk = vi >= 100 ? 'VERY HIGH' : vi >= 50 ? 'HIGH' : vi >= 22 ? 'MODERATE' : 'LOW';
+
+  // ── l: Potential health loss (healthy adult ≈ 50, max ≈ 220) ──────
+  const l = Math.round(Math.min(220, 50 + vi * 1.15));
+
+  // ── gl: Loss amplifier — calibrated for strict monotonicity ───────
+  // LOW 1.00 / MODERATE 1.20 / HIGH 1.45 / VERY HIGH 1.70
+  // Higher vulnerability → higher gl → larger l·gl → lower p* → act earlier
+  const gl = { LOW:1.00, MODERATE:1.20, HIGH:1.45, 'VERY HIGH':1.70 }[risk];
+
+  // ── c: Cost of protective action ──────────────────────────────────
+  let c = { easy:8, mod:22, hard:42, no:68 }[S.flex] || 22;
+  c += { yes:3, maybe:12, no:22 }[S.cool] || 12;
+  c += { none:0, low:3, med:8, high:16 }[S.outdoor] || 0;
+  c = Math.round(Math.min(100, c));
+
+  // ── gc: Action-cost curvature (less flexible → more convex) ───────
+  const gc = { easy:1.20, mod:1.50, hard:1.85, no:2.20 }[S.flex] || 1.50;
+
+  // ── p* = (c × gc) / (l × gl) — Bayesian decision threshold ───────
+  // No upper cap; p* > 1.0 is valid (action never warranted at any forecast probability)
+  const pstar = Math.max(0.05, (c * gc) / (l * gl));
+
+  // ── Trigger level ─────────────────────────────────────────────────
+  // GREEN = most sensitive (act even without a warning); RED = least sensitive.
+  // Thresholds aligned with Sri Lanka EWS exceedance probs: P(≥YELLOW)≈0.80, P(≥AMBER)≈0.40, P(≥RED)≈0.10
+  const trig = pstar < 0.10 ? 'GREEN' : pstar < 0.40 ? 'YELLOW' : pstar < 0.80 ? 'AMBER' : 'RED';
+
+  // ── Support flag ──────────────────────────────────────────────────
+  const needsSupport = (S.flex === 'no' || S.flex === 'hard') &&
+                       (risk === 'HIGH' || risk === 'VERY HIGH');
+
+  return { vi, l, gl, c, gc, pstar, risk, trig, needsSupport };
+}
+
+// ── Results ───────────────────────────────────────────────────────────
+function doResults() {
+  const e = validate(5);
+  if (e) { showErr('err5', e); return; }
+  const R = compute();
+  go(6);
+  setTimeout(() => render(R), 120);
+}
+
+function render(R) {
+  // Gauge — normalised over [0.05, 1.00]; p* > 1 pins needle to right (never-act)
+  const arcLen = 383.27;
+  const frac   = Math.max(0, Math.min(1, (R.pstar - 0.05) / 0.95));
+  const angle  = -90 + frac * 180;
+  document.getElementById('r-needle').style.transform = `rotate(${angle}deg)`;
+  const fill = document.getElementById('r-fill');
+  fill.style.strokeDashoffset = arcLen * (1 - frac);
+  // Colour matches zone tints: green (left/low p*) → amber → red (right/high p*)
+  fill.style.stroke = R.pstar < 0.10 ? '#43A047' : R.pstar < 0.40 ? '#FDD835' : R.pstar < 0.80 ? '#FB8C00' : '#E53935';
+
+  document.getElementById('r-val').textContent = R.pstar.toFixed(2);
+  document.getElementById('r-meta').textContent =
+    'VI=' + R.vi + '  ·  p*=' + R.pstar.toFixed(2) + '  ·  c=' + R.c + '  l=' + R.l + '  γc=' + R.gc.toFixed(2) + '  γl=' + R.gl.toFixed(2);
+
+  // Risk badge
+  const RS = {
+    'LOW':       { bg:'var(--green-l)', fg:'var(--green)', icon:'🟢' },
+    'MODERATE':  { bg:'var(--yellow-l)',fg:'#7B5800',      icon:'🟡' },
+    'HIGH':      { bg:'var(--amber-l)', fg:'var(--amber)', icon:'🟠' },
+    'VERY HIGH': { bg:'var(--red-l)',   fg:'var(--red)',   icon:'🔴' },
+  };
+  const rs = RS[R.risk];
+  const badge = document.getElementById('r-badge');
+  badge.style.cssText = `background:${rs.bg};color:${rs.fg};`;
+  badge.innerHTML = `${rs.icon} ${R.risk} personal risk`;
+
+  // Trigger text
+  const tt = {
+    GREEN:  'Your sensitivity profile is high — take heat precautions on any hot day, even before a formal warning is issued.',
+    YELLOW: 'Begin protective actions when a YELLOW Heat Watch is issued.',
+    AMBER:  'You have moderate resilience — begin precautions when an AMBER Heat Alert is issued.',
+    RED:    'Your capacity to handle heat is good — full precautions are needed at RED (Heat Warning) level only.',
+  };
+  document.getElementById('r-trig-txt').textContent = tt[R.trig];
+
+  // Alert level rows — thresholds aligned with Sri Lanka EWS
+  const LEVELS = [
+    { name:'GREEN',  hi:'< 39°C HI (Normal)',       c:'#2E7D32', bg:'#E8F5E9', icon:'🟢' },
+    { name:'YELLOW', hi:'39–46°C HI (Caution)',      c:'#F57F17', bg:'#FFFDE7', icon:'🟡' },
+    { name:'AMBER',  hi:'46–52°C HI (Extreme)',      c:'#E65100', bg:'#FFF3E0', icon:'🟠' },
+    { name:'RED',    hi:'> 52°C HI (Danger)',         c:'#C62828', bg:'#FFEBEE', icon:'🔴' },
+  ];
+  const tidx = ['GREEN','YELLOW','AMBER','RED'].indexOf(R.trig);
+  document.getElementById('r-levels').innerHTML = LEVELS.map((lv, i) => {
+    const act = i >= tidx;
+    return `<div class="lvl-row" style="background:${act ? lv.bg : '#F8F9FA'};opacity:${act ? 1 : .5};">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span>${lv.icon}</span>
+        <div><div class="ln" style="color:${lv.c}">${lv.name}</div><div class="la">${lv.hi}</div></div>
+      </div>
+      <div style="font-size:13px;font-weight:${act?700:400};color:${act?lv.c:'var(--text-l)'};">
+        ${act ? '⚡ Take action' : 'Monitor'}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Factors
+  const factors = buildFactors(R);
+  document.getElementById('r-factors').innerHTML = factors.length
+    ? factors.map(f => `<div class="fi"><span class="fi-i">${f.i}</span><span>${f.t}</span></div>`).join('')
+    : `<div class="fi"><span class="fi-i">✅</span><span>No major risk factors identified — standard heat precautions apply.</span></div>`;
+
+  // Tips
+  const tips = buildTips(R);
+  document.getElementById('r-tips').innerHTML = tips.map(t =>
+    `<div class="ti"><span class="ti-i">${t.i}</span><span>${t.t}</span></div>`
+  ).join('');
+
+  // Support flag
+  if (R.needsSupport) {
+    document.getElementById('r-support').style.display = 'block';
+    document.getElementById('r-support-txt').textContent =
+      'Your vulnerability is high but your daily situation limits how much you can reduce heat exposure. ' +
+      'This means you may need support from your employer, community, or local health services during heat alerts. ' +
+      'Consider speaking to your employer about heat safety arrangements, or contacting your local Grama Niladhari office for guidance.';
+  }
+}
+
+function buildFactors(R) {
+  const f = [];
+  const age = S.age;
+  if (age === 'a75') f.push({ i:'👴', t:'Age 75+ significantly raises heat risk — the body\'s thermoregulation slows with age.' });
+  else if (age === 'a65') f.push({ i:'🧓', t:'Age 65–74 increases heat vulnerability — your body adjusts to heat more slowly.' });
+  if (S.preg === 'yes') f.push({ i:'🤰', t:'Pregnancy increases core body temperature and risk of heat-related complications.' });
+  if (S.cond.has('cvd'))  f.push({ i:'❤️', t:'Heart disease or hypertension — heat puts added strain on the cardiovascular system.' });
+  if (S.cond.has('dm'))   f.push({ i:'🩸', t:'Diabetes — heat affects blood sugar regulation and significantly worsens dehydration.' });
+  if (S.cond.has('ckd'))  f.push({ i:'🫘', t:'Kidney disease — dehydration is a serious risk; fluid intake guidance is critical.' });
+  if (S.cond.has('resp')) f.push({ i:'🫁', t:'Lung condition — hot humid air worsens breathing difficulties.' });
+  if (S.cond.has('mh'))   f.push({ i:'🧠', t:'Mental health conditions and some of their medications impair heat tolerance.' });
+  if (S.cond.has('ob'))   f.push({ i:'⚖️', t:'Obesity raises core body temperature during heat and reduces cooling efficiency.' });
+  if (S.med.has('antip')) f.push({ i:'💊', t:'Antipsychotics or mood stabilisers impair the body\'s sweating response — a significant heat risk factor.' });
+  if (S.med.has('diur'))  f.push({ i:'💧', t:'Diuretics increase fluid loss, making you more susceptible to dehydration in heat.' });
+  if (S.med.has('anti'))  f.push({ i:'💊', t:'Anticholinergic medications (antihistamines, bladder tablets) reduce sweating, raising overheating risk.' });
+  if (S.med.has('bp'))    f.push({ i:'💊', t:'Blood pressure tablets can affect how your circulation responds to heat-related fluid shifts.' });
+  if (S.outdoor === 'high') f.push({ i:'☀️', t:'High daily outdoor exposure during peak heat hours substantially increases your heat dose.' });
+  if (S.daytime === 'none_c' || S.daytime === 'out')
+    f.push({ i:'🏚️', t:'No daytime cooling prevents your body from recovering heat between exposures.' });
+  if (S.night === 'hot')  f.push({ i:'🔥', t:'Very hot sleeping conditions mean heat stress accumulates over multiple days.' });
+  if (S.help === 'no')    f.push({ i:'🚪', t:'Living alone without regular contact means heat illness may go unnoticed — a key risk factor.' });
+  return f.slice(0, 6);
+}
+
+function buildTips(R) {
+  const t = [];
+
+  // Universal
+  t.push({ i:'💧', t:`Drink water throughout the day — don't wait until you're thirsty. During ${R.trig} level and above, aim for at least 2–3 litres.` });
+
+  // Medication-specific
+  if (S.med.has('antip') || S.med.has('anti'))
+    t.push({ i:'👨‍⚕️', t:'Speak to your doctor or pharmacist about how your medication affects heat tolerance. You may need specific precautions during heat alerts.' });
+  if (S.med.has('diur'))
+    t.push({ i:'💊', t:'Ask your prescriber whether your fluid intake guidance changes in prolonged heat. Diuretics significantly raise dehydration risk.' });
+
+  // Condition-specific
+  if (S.cond.has('dm'))
+    t.push({ i:'🩸', t:'Monitor your blood sugar more frequently during heat alerts — heat can cause levels to spike. Keep insulin and test strips away from direct sunlight.' });
+  if (S.cond.has('cvd'))
+    t.push({ i:'❤️', t:'Be alert to chest discomfort, unusual breathlessness, or faintness in the heat. These symptoms need immediate medical attention.' });
+  if (S.cond.has('ckd'))
+    t.push({ i:'🫘', t:'Stay well hydrated, but follow your doctor\'s specific fluid guidance — some kidney conditions require limiting intake.' });
+  if (S.cond.has('resp'))
+    t.push({ i:'🫁', t:'Keep your reliever inhaler accessible during heat alerts. Hot humid air can trigger breathing difficulties more quickly.' });
+
+  // Age-specific
+  if (S.age === 'a75' || S.age === 'a65')
+    t.push({ i:'⏰', t:'Thirst sensation reduces with age — set reminders to drink water regularly even when you don\'t feel thirsty.' });
+  if (S.preg === 'yes')
+    t.push({ i:'🤰', t:'Avoid prolonged heat exposure, especially in the first trimester. Contact your midwife or doctor if you feel overheated, dizzy, or unwell.' });
+
+  // Exposure-specific
+  if (S.outdoor === 'high' || S.outdoor === 'med')
+    t.push({ i:'⏰', t:'Shift heavy or outdoor tasks to before 9am or after 4pm during heat alerts. Taking 5–10 minutes in shade every hour substantially reduces heat strain.' });
+  if (S.daytime === 'none_c' || S.daytime === 'out')
+    t.push({ i:'🏪', t:'Identify your nearest cool public space — library, clinic, shopping centre — before a heat alert is issued. Know where you can go before you need to.' });
+  if (S.night === 'hot')
+    t.push({ i:'🌙', t:'Cross-ventilate your room in the evening when outdoor air cools. A damp cloth on the neck or wrists before sleep can reduce overnight heat stress.' });
+
+  // Social and access
+  if (S.help === 'no')
+    t.push({ i:'📞', t:'Set up a daily check-in call or message with a neighbour or family member during heat alert periods — this simple arrangement saves lives.' });
+  if (S.flex === 'no')
+    t.push({ i:'🧊', t:'If you cannot avoid outdoor work, keep ice water accessible and wear light, loose, light-coloured clothing. Know the signs of heat exhaustion: heavy sweating, weakness, fast pulse, nausea, dizziness.' });
+  if (S.cool === 'no')
+    t.push({ i:'🚑', t:'If you develop signs of heat stroke — confusion, stopping sweating, very high temperature — call emergency services immediately. Do not try to manage it alone.' });
+
+  return t.slice(0, 6);
+}
+
+// ── Restart ───────────────────────────────────────────────────────────
+function restart() {
+  S.age = null; S.preg = 'no';
+  S.cond.clear(); S.med.clear();
+  S.outdoor = null; S.daytime = null; S.night = null;
+  S.flex = null; S.cool = null; S.help = null;
+  document.querySelectorAll('.opt,.tbtn').forEach(e => e.classList.remove('sel'));
+  document.querySelectorAll('.chk').forEach(e => e.classList.remove('on'));
+  document.querySelectorAll('.errmsg').forEach(e => e.classList.remove('show'));
+  document.getElementById('r-support').style.display = 'none';
+  cur = 0;
+  go(0);
+}
+</script>
+</body>
+</html>
